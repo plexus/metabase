@@ -32,7 +32,13 @@
   ;; !!                                   AND ADD A COMMENT EXPLAINING THEIR PURPOSE                                  !!
   ;; !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   :dependencies
-  [[org.clojure/clojure "1.10.0"]
+  [[com.datomic/datomic-free "0.9.5697"
+    :exclusions [org.slf4j/jcl-over-slf4j
+                 org.slf4j/jul-to-slf4j
+                 org.slf4j/log4j-over-slf4j
+                 org.slf4j/slf4j-nop]]
+
+   [org.clojure/clojure "1.10.0"]
    [org.clojure/core.async "0.4.490"
     :exclusions [org.clojure/tools.reader]]
    [org.clojure/core.match "0.3.0-alpha4"]                            ; optimized pattern matching library for Clojure
@@ -241,7 +247,7 @@
                            ;; disabled (yet)
                            ;;
                            ;; For example see https://github.com/jonase/eastwood/issues/193
-                           ;
+                                                                      ;
                            ;; It's still useful to re-enable them and run them every once in a while because they catch
                            ;; a lot of actual errors too. Keep an eye on the issue above and re-enable them if we can
                            ;; get them to work
