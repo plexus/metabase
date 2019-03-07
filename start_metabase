@@ -1,0 +1,29 @@
+#!/bin/bash
+
+
+bash <<EOF &
+    while ! nc -z localhost 4444; do sleep 0.5; done
+    sleep 2
+    xargs -0 emacsclient -e <<ELISP
+      (progn
+        (require 'cider)
+
+        (cider-connect-clj (list :host "localhost"
+                                 :port "4444"
+                                 :project-dir "`pwd`")))
+ELISP
+
+rep "(do
+  (require 'metabase.core)
+  (metabase.core/start-jetty!)
+  (metabase.core/init!))"
+
+sleep 5
+
+rep < ./modules/drivers/datomic/src/metabase/driver/datomic.clj
+
+firefox-nightly http://localhost:3000
+
+EOF
+
+lein update-in :dependencies conj '[nrepl "0.6.0"]' -- update-in :plugins conj '[refactor-nrepl "2.4.0"]' -- update-in :plugins conj '[cider/cider-nrepl "0.21.1"]' -- with-profiles +include-all-drivers repl :headless :port 4444
