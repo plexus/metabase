@@ -91,8 +91,16 @@
   "Middleware that catches any unexpected Exceptions that reroutes them thru `raise` where they can be handled
   appropriately."
   [handler]
-  (fn [request response raise]
+  (fn [request respond raise]
     (try
-      (handler request response raise)
+      (handler
+       request
+       ;; for people that accidentally pass along an Exception, e.g. from qp.async, do the nice thing and route it to
+       ;; the write place for them
+       (fn [response]
+         (if (instance? Throwable response)
+           (raise response)
+           (respond response)))
+       raise)
       (catch Throwable e
         (raise e)))))

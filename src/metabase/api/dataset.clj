@@ -1,6 +1,7 @@
 (ns metabase.api.dataset
   "/api/dataset endpoints."
   (:require [cheshire.core :as json]
+            [clojure.core.async :as a]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [compojure.core :refer [POST]]
@@ -10,7 +11,9 @@
              [database :as database :refer [Database]]
              [query :as query]]
             [metabase.query-processor :as qp]
-            [metabase.query-processor.util :as qputil]
+            [metabase.query-processor
+             [async :as qp.async]
+             [util :as qputil]]
             [metabase.util
              [date :as du]
              [export :as ex]
@@ -31,21 +34,19 @@
     (api/read-check Card source-card-id)
     source-card-id))
 
-(api/defendpoint POST "/"
+(api/defendpoint-async POST "/"
   "Execute a query and retrieve the results in the usual format."
-  [:as {{:keys [database], :as query} :body}]
+  [{{:keys [database], :as query} :body} respond raise]
   {database s/Int}
   ;; don't permissions check the 'database' if it's the virtual database. That database doesn't actually exist :-)
   (when-not (= database database/virtual-id)
     (api/read-check Database database))
   ;; add sensible constraints for results limits on our query
-  (let [source-card-id (query->source-card-id query)]
-    (api/cancelable-json-response
-     (fn []
-       (qp/process-query-and-save-with-max!
-           query
-           {:executed-by api/*current-user-id*, :context :ad-hoc,
-            :card-id     source-card-id,        :nested? (boolean source-card-id)})))))
+  (let [source-card-id (query->source-card-id query)
+        options        {:executed-by api/*current-user-id*, :context :ad-hoc,
+                        :card-id     source-card-id,        :nested? (boolean source-card-id)}]
+    (a/go
+      (respond (a/<! (qp.async/process-query-and-save-with-max! query options))))))
 
 
 ;;; ----------------------------------- Downloading Query Results in Other Formats -----------------------------------
@@ -144,5 +145,6 @@
   {:average (or (query/average-execution-time-ms (qputil/query-hash query))
                 (query/average-execution-time-ms (qputil/query-hash (assoc query :constraints qp/default-query-constraints)))
                 0)})
+
 
 (api/define-routes)

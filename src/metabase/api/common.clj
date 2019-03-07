@@ -296,6 +296,28 @@
           ~@validate-param-calls
           (wrap-response-if-needed (do ~@body)))))))
 
+(defmacro defendpoint-async
+  "Like `defendpoint`, but generates an endpoint that accepts the usual `[request respond raise]` params."
+  {:arglists '([method route docstr? args schemas-map? & body])}
+  [method route & more]
+  (let [fn-name                (route-fn-name method route)
+        route                  (typify-route route)
+        [docstr [args & more]] (u/optional string? more)
+        [arg->schema body]     (u/optional (every-pred map? #(every? symbol? (keys %))) more)
+        validate-param-calls   (validate-params arg->schema)]
+    (when-not docstr
+      (log/warn (trs "Warning: endpoint {0}/{1} does not have a docstring." (ns-name *ns*) fn-name)))
+    `(def ~(vary-meta fn-name assoc
+                      ;; eval the vals in arg->schema to make sure the actual schemas are resolved so we can document
+                      ;; their API error messages
+                      :doc (route-dox method route docstr args (m/map-vals eval arg->schema) body)
+                      :is-endpoint? true)
+       (~method ~route []
+        (fn ~args
+          (auto-parse ~args
+            ~@validate-param-calls
+            (wrap-response-if-needed (do ~@body))))))))
+
 (defn- namespace->api-route-fns
   "Return a sequence of all API endpoint functions defined by `defendpoint` in a namespace."
   [nmspace]
